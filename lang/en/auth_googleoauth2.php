@@ -60,6 +60,10 @@ $string['auth_linkedinclientid'] = 'Your API/Secret keys can be generated in you
 $string['auth_linkedinclientid_key'] = 'Linkedin API Key';
 $string['auth_linkedinclientsecret'] = 'See above.';
 $string['auth_linkedinclientsecret_key'] = 'Linkedin Secret key';
+$string['auth_bravoclientid'] = 'See <a href="http://account.bravofleet.com" target="_blank">account.bravofleet.com</a> for more information about how to get client key and secret.';
+$string['auth_bravoclientid_key'] = 'Bravo Fleet API Key';
+$string['auth_bravoclientsecret'] = 'See above.';
+$string['auth_bravoclientsecret_key'] = 'Bravo Fleet Secret key';
 $string['auth_messengerclientid'] = 'Your Client ID/Secret can be generated in your <a href="https://account.live.com/developers/applications">Windows Live apps page</a>:
 <br/>Redirect domain: {$a->domain}';
 $string['auth_messengerclientid_key'] = 'Messenger Client ID';

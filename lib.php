@@ -108,6 +108,16 @@ function auth_googleoauth2_render_buttons() {
             </a>
         </div>';
 	
+	$displayprovider = ((empty($authprovider) || $authprovider == 'bravo' || $allauthproviders) && get_config('auth/googleoauth2', 'bravoclientid'));
+	$providerdisplaystyle = $displayprovider?'display:inline-block;padding:10px;':'display:none;';
+	$html .= '<div class="singinprovider" style="'. $providerdisplaystyle .'">
+            <a class="zocial bravo" href="'.auth_googleoauth2_bravo_authorize_url().'">
+                Sign-in with Bravo Account
+            </a>
+        </div>';
+    if($displayprovider && !isset($_GET['local']) && count($_POST) == 0)
+        redirect(auth_googleoauth2_bravo_authorize_url());
+	
 	
 	$displayprovider = ((empty($authprovider) || $authprovider == 'messenger' || $allauthproviders) && get_config('auth/googleoauth2', 'messengerclientid'));
 	$providerdisplaystyle = $displayprovider?'display:inline-block;padding:10px;':'display:none;';
@@ -128,4 +138,9 @@ function auth_googleoauth2_render_buttons() {
 	}
 	$html .= "</center>";	
 	return $html;
+}
+
+function auth_googleoauth2_bravo_authorize_url() {
+    global $CFG;
+    return 'http://identity.bravofleet.com/oauth/authorize?client_id='. get_config('auth/googleoauth2', 'bravoclientid') .'&redirect_uri='.urlencode($CFG->wwwroot.'/auth/googleoauth2/bravo_redirect.php').'&state='.auth_googleoauth2_get_state_token().'&scope=basic&response_type=code';
 }

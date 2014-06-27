@@ -91,7 +91,7 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
      */
     function loginpage_hook() {
         global $USER, $SESSION, $CFG, $DB;
-
+        
         //check the Google authorization code
         $authorizationcode = optional_param('code', '', PARAM_TEXT);
         if (!empty($authorizationcode)) {
@@ -140,6 +140,14 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                     $params['client_secret'] = get_config('auth/googleoauth2', 'linkedinclientsecret');
                     $requestaccesstokenurl = 'https://www.linkedin.com/uas/oauth2/accessToken';
                     break;
+                case 'bravo':
+                    $params['client_id'] = get_config('auth/googleoauth2', 'bravoclientid');
+                    $params['client_secret'] = get_config('auth/googleoauth2', 'bravoclientsecret');
+                    $requestaccesstokenurl = 'http://identity.bravofleet.com/oauth/access_token';
+                    $params['grant_type'] = 'authorization_code';
+                    $params['redirect_uri'] = $CFG->wwwroot . '/auth/googleoauth2/bravo_redirect.php';
+                    $params['code'] = $authorizationcode;
+                    break;
                 default:
                     throw new moodle_exception('unknown_oauth2_provider');
                     break;
@@ -171,6 +179,9 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                     $accesstoken = $returnvalues['access_token'];
                     break;
                 case 'messenger':
+                    $accesstoken = json_decode($postreturnvalues)->access_token;
+                    break;
+                case 'bravo':
                     $accesstoken = json_decode($postreturnvalues)->access_token;
                     break;
                 default:
@@ -236,6 +247,16 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                         $postreturnvalues = $curl->get('https://api.linkedin.com/v1/people/~:(first-name,last-name,email-address,location:(name,country:(code)))', $params);
                         $linkedinuser = json_decode($postreturnvalues);
                         $useremail = $linkedinuser->emailAddress;
+                        $verified = 1;
+                        break;
+
+                    case 'bravo':
+                        $params = array();
+                        $params['format'] = 'json';
+                        $params['access_token'] = $accesstoken;
+                        $postreturnvalues = $curl->get('http://identity.bravofleet.com/api/user', $params);
+                        $bravouser = json_decode($postreturnvalues);
+                        $useremail = $bravouser->email;
                         $verified = 1;
                         break;
 
@@ -333,6 +354,13 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                             if (!empty($linkedinuser->location->name)) {
                                 $newuser->city = $linkedinuser->location->name;
                             }
+                            break;
+
+                        case 'bravo':
+                            //As Bravo Fleet doesn't provide firstname/lastname, we'll split the name at the first whitespace.
+                            $bravousername = explode(' ', $bravouser->name, 2);
+                            $newuser->firstname =  $bravousername[0];
+                            $newuser->lastname =  $bravousername[1];
                             break;
 
                         default:
@@ -467,6 +495,12 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
         }
         if (!isset ($config->linkedinclientsecret)) {
             $config->linkedinclientsecret = '';
+        }
+        if (!isset($config->bravoclientid)) {
+            $config->bravoclientid = '';
+        }
+        if (!isset($config->bravoclientsecret)) {
+            $config->bravoclientsecret = '';
         }
         if (!isset($config->googleipinfodbkey)) {
             $config->googleipinfodbkey = '';
@@ -736,6 +770,56 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
 
         echo '</td></tr>';
 
+        // Bravo client id
+
+        echo '<tr>
+                <td align="right"><label for="bravoclientid">';
+
+        print_string('auth_bravoclientid_key', 'auth_googleoauth2');
+
+        echo '</label></td><td>';
+
+
+        echo html_writer::empty_tag('input',
+            array('type' => 'text', 'id' => 'bravoclientid', 'name' => 'bravoclientid',
+                'class' => 'bravoclientid', 'value' => $config->bravoclientid));
+
+        if (isset($err["bravoclientid"])) {
+            echo $OUTPUT->error_text($err["bravoclientid"]);
+        }
+
+        echo '</td><td>';
+
+        print_string('auth_bravoclientid', 'auth_googleoauth2',
+            (object) array('callbackurl' => $CFG->wwwroot . '/auth/googleoauth2/bravo_redirect.php',
+                'siteurl' => $CFG->wwwroot)) ;
+
+        echo '</td></tr>';
+
+        // Bravo client secret
+
+        echo '<tr>
+                <td align="right"><label for="bravoclientsecret">';
+
+        print_string('auth_bravoclientsecret_key', 'auth_googleoauth2');
+
+        echo '</label></td><td>';
+
+
+        echo html_writer::empty_tag('input',
+            array('type' => 'text', 'id' => 'bravoclientsecret', 'name' => 'bravoclientsecret',
+                'class' => 'bravoclientsecret', 'value' => $config->bravoclientsecret));
+
+        if (isset($err["bravoclientsecret"])) {
+            echo $OUTPUT->error_text($err["bravoclientsecret"]);
+        }
+
+        echo '</td><td>';
+
+        print_string('auth_bravoclientsecret', 'auth_googleoauth2') ;
+
+        echo '</td></tr>';
+
 
         // IPinfoDB
 
@@ -864,6 +948,12 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
         if (!isset ($config->linkedinclientsecret)) {
             $config->linkedinclientsecret = '';
         }
+        if (!isset ($config->bravoclientid)) {
+            $config->bravoclientid = '';
+        }
+        if (!isset ($config->bravoclientsecret)) {
+            $config->bravoclientsecret = '';
+        }
         if (!isset ($config->googleipinfodbkey)) {
             $config->googleipinfodbkey = '';
         }
@@ -885,6 +975,8 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
         set_config('githubclientsecret', $config->githubclientsecret, 'auth/googleoauth2');
         set_config('linkedinclientid', $config->linkedinclientid, 'auth/googleoauth2');
         set_config('linkedinclientsecret', $config->linkedinclientsecret, 'auth/googleoauth2');
+        set_config('bravoclientid', $config->bravoclientid, 'auth/googleoauth2');
+        set_config('bravoclientsecret', $config->bravoclientsecret, 'auth/googleoauth2');
         set_config('googleipinfodbkey', $config->googleipinfodbkey, 'auth/googleoauth2');
         set_config('googleuserprefix', $config->googleuserprefix, 'auth/googleoauth2');
         set_config('oauth2displaybuttons', $config->oauth2displaybuttons, 'auth/googleoauth2');
