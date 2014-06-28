@@ -257,6 +257,7 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                         $postreturnvalues = $curl->get('http://identity.bravofleet.com/api/user', $params);
                         $bravouser = json_decode($postreturnvalues);
                         $useremail = $bravouser->email;
+                        $username = $bravouser->username;
                         $verified = 1;
                         break;
 
@@ -281,7 +282,13 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                 }
                 //get the user - don't bother with auth = googleoauth2 because
                 //authenticate_user_login() will fail it if it's not 'googleoauth2'
-                $user = $DB->get_record('user', array('email' => $useremail, 'deleted' => 0, 'mnethostid' => $CFG->mnet_localhost_id));
+                if($authprovider == 'bravo') {
+                    if(!isset($username) || !strlen($username))
+                        throw new moodle_exception('unknownusername', 'auth_googleoauth2');
+                    $user = $DB->get_record('user', array('username' => 'bravo__'.$username, 'deleted' => 0, 'mnethostid' => $CFG->mnet_localhost_id));
+                } else {
+                    $user = $DB->get_record('user', array('email' => $useremail, 'deleted' => 0, 'mnethostid' => $CFG->mnet_localhost_id));
+                }
 
                 //create the user if it doesn't exist
                 if (empty($user)) {
@@ -289,20 +296,23 @@ class auth_plugin_googleoauth2 extends auth_plugin_base {
                     // deny login if setting "Prevent account creation when authenticating" is on
                     if($CFG->authpreventaccountcreation) throw new moodle_exception("noaccountyet", "auth_googleoauth2");
 
-
+                    if($authprovider == 'bravo') {
+                        $username = 'bravo__'.$username;
+                    } else {
                     //get following incremented username
-                    $lastusernumber = get_config('auth/googleoauth2', 'lastusernumber');
-                    $lastusernumber = empty($lastusernumber)?1:$lastusernumber++;
-                    //check the user doesn't exist
-                    $nextuser = $DB->get_record('user',
-                            array('username' => get_config('auth/googleoauth2', 'googleuserprefix').$lastusernumber));
-                    while (!empty($nextuser)) {
-                        $lastusernumber = $lastusernumber +1;
+                        $lastusernumber = get_config('auth/googleoauth2', 'lastusernumber');
+                        $lastusernumber = empty($lastusernumber)?1:$lastusernumber++;
+                        //check the user doesn't exist
                         $nextuser = $DB->get_record('user',
-                            array('username' => get_config('auth/googleoauth2', 'googleuserprefix').$lastusernumber));
+                                array('username' => get_config('auth/googleoauth2', 'googleuserprefix').$lastusernumber));
+                        while (!empty($nextuser)) {
+                            $lastusernumber = $lastusernumber +1;
+                            $nextuser = $DB->get_record('user',
+                                array('username' => get_config('auth/googleoauth2', 'googleuserprefix').$lastusernumber));
+                        }
+                        set_config('lastusernumber', $lastusernumber, 'auth/googleoauth2');
+                        $username = get_config('auth/googleoauth2', 'googleuserprefix') . $lastusernumber;
                     }
-                    set_config('lastusernumber', $lastusernumber, 'auth/googleoauth2');
-                    $username = get_config('auth/googleoauth2', 'googleuserprefix') . $lastusernumber;
 
                     //retrieve more information from the provider
                     $newuser = new stdClass();
